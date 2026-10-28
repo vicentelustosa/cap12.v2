@@ -9,5 +9,5 @@ class TelaLivros(Tela):
         if not livros:
             self.aviso("Nenhum livro cadastrado.")
             return
-        for indice, livro in enumerate(livros, start=1):
-            print(f"{indice} - {livro.titulo}")
+        for livro in livros:
+            print(livro)

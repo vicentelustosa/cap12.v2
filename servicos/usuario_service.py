@@ -43,6 +43,25 @@ class UsuarioService:
     def buscar(self, id_usuario: int) -> Usuario | None:
         return self.__sessao.get(Usuario, id_usuario)
 
+    def buscar_por_nome(
+        self,
+        termo: str
+    ) -> list[Usuario]:
+        termo = termo.strip()
+
+        if not termo:
+            raise ValueError(
+                "Informe um trecho do nome para buscar."
+            )
+
+        comando = (
+            select(Usuario)
+            .where(Usuario.nome.like(f"%{termo}%"))
+            .order_by(Usuario.nome, Usuario.id)
+        )
+
+        return self.__sessao.scalars(comando).all()
+
     def remover(self, id_usuario: int) -> None:
         usuario = self.buscar(id_usuario)
 

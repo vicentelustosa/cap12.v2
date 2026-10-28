@@ -9,5 +9,5 @@ class TelaEmprestimos(Tela):
         if not emprestimos:
             self.aviso("Nenhum empréstimo ativo.")
             return
-        for indice, emprestimo in enumerate(emprestimos, start=1):
-            print(f"{indice} - Livro: {emprestimo.livro.titulo} | Usuário: {emprestimo.usuario.nome}")
+        for emprestimo in emprestimos:
+            print(emprestimo)

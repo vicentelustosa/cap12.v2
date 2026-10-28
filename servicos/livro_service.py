@@ -43,6 +43,25 @@ class LivroService:
     def buscar(self, id_livro: int) -> Livro | None:
         return self.__sessao.get(Livro, id_livro)
 
+    def buscar_por_titulo(
+        self,
+        termo: str
+    ) -> list[Livro]:
+        termo = termo.strip()
+
+        if not termo:
+            raise ValueError(
+                "Informe um trecho do título para buscar."
+            )
+
+        comando = (
+            select(Livro)
+            .where(Livro.titulo.like(f"%{termo}%"))
+            .order_by(Livro.titulo, Livro.id)
+        )
+
+        return self.__sessao.scalars(comando).all()
+
     def remover(self, id_livro: int) -> None:
         livro = self.buscar(id_livro)
 

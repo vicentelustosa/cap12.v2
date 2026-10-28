@@ -9,5 +9,5 @@ class TelaUsuarios(Tela):
         if not usuarios:
             self.aviso("Nenhum usuário cadastrado.")
             return
-        for indice, usuario in enumerate(usuarios, start=1):
-            print(f"{indice} - {usuario.nome}")
+        for usuario in usuarios:
+            print(usuario)
