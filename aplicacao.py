@@ -1,51 +1,84 @@
-from modelos import Livro, Usuario, Emprestimo
+from sqlalchemy.orm import Session
+
+from persistencia.banco import (
+    criar_sessao,
+    criar_tabelas
+)
+
+from servicos.livro_service import LivroService
+from servicos.usuario_service import UsuarioService
+from servicos.emprestimo_service import EmprestimoService
 
 
-class Biblioteca:
-    def __init__(self, livro_persistencia, usuario_persistencia, emprestimo_persistencia):
-        self.__livro_persistencia = livro_persistencia
-        self.__usuario_persistencia = usuario_persistencia
-        self.__emprestimo_persistencia = emprestimo_persistencia
-        self.__livros = self.__livro_persistencia.carregar()
-        self.__usuarios = self.__usuario_persistencia.carregar()
-        self.__emprestimos = self.__emprestimo_persistencia.carregar(
-            self.__livros, self.__usuarios
+class Aplicacao:
+
+    def __init__(self):
+        criar_tabelas()
+        self.__sessao: Session | None = None
+
+        self.__livro_service = None
+        self.__usuario_service = None
+        self.__emprestimo_service = None
+
+    def __enter__(self):
+        self.__sessao = criar_sessao()
+
+        self.__livro_service = LivroService(
+            self.sessao
         )
 
-    def adicionar_livro(self, livro: Livro):
-        self.__livros.append(livro)
+        self.__usuario_service = UsuarioService(
+            self.sessao
+        )
 
-    def listar_livros(self):
-        return self.__livros
+        self.__emprestimo_service = EmprestimoService(
+            self.sessao
+        )
 
-    def buscar_livro(self, titulo: str):
-        return next((livro for livro in self.__livros if livro.titulo == titulo), None)
+        return self
 
-    def remover_livro(self, livro: Livro):
-        self.__livros.remove(livro)
+    def __exit__(
+        self,
+        tipo_excecao,
+        excecao,
+        traceback
+    ):
+        if self.__sessao is not None:
+            self.__sessao.close()
+            self.__sessao = None
 
-    def adicionar_usuario(self, usuario: Usuario):
-        self.__usuarios.append(usuario)
+    @property
+    def sessao(self) -> Session:
+        if self.__sessao is None:
+            raise RuntimeError(
+                "A aplicação não foi inicializada."
+            )
 
-    def listar_usuarios(self):
-        return self.__usuarios
+        return self.__sessao
 
-    def buscar_usuario(self, nome: str):
-        return next((usuario for usuario in self.__usuarios if usuario.nome == nome), None)
+    @property
+    def livro_service(self) -> LivroService:
+        if self.__livro_service is None:
+            raise RuntimeError(
+                "A aplicação não foi inicializada."
+            )
 
-    def remover_usuario(self, usuario: Usuario):
-        self.__usuarios.remove(usuario)
+        return self.__livro_service
 
-    def adicionar_emprestimo(self, emprestimo: Emprestimo):
-        self.__emprestimos.append(emprestimo)
+    @property
+    def usuario_service(self) -> UsuarioService:
+        if self.__usuario_service is None:
+            raise RuntimeError(
+                "A aplicação não foi inicializada."
+            )
 
-    def listar_emprestimos(self):
-        return self.__emprestimos
+        return self.__usuario_service
 
-    def remover_emprestimo(self, emprestimo: Emprestimo):
-        self.__emprestimos.remove(emprestimo)
+    @property
+    def emprestimo_service(self) -> EmprestimoService:
+        if self.__emprestimo_service is None:
+            raise RuntimeError(
+                "A aplicação não foi inicializada."
+            )
 
-    def salvar(self):
-        self.__livro_persistencia.salvar(self.__livros)
-        self.__usuario_persistencia.salvar(self.__usuarios)
-        self.__emprestimo_persistencia.salvar(self.__emprestimos)
+        return self.__emprestimo_service

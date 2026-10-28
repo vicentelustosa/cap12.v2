@@ -1,14 +1,26 @@
-class Usuario:
-    def __init__(self, nome: str):
-        self.nome = nome
+# Python — modelos/usuario.py
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-    @property
-    def nome(self) -> str:
-        return self.__nome
+from modelos.base import Base
 
-    @nome.setter
-    def nome(self, valor: str):
-        self.__nome = valor.strip()
 
-    def __str__(self):
+class Usuario(Base):
+
+    __tablename__ = "usuarios"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True
+    )
+
+    nome: Mapped[str] = mapped_column(
+        String(200)
+    )
+
+    emprestimos: Mapped[list["Emprestimo"]] = relationship(
+        back_populates="usuario"
+    )
+
+    def __str__(self) -> str:
         return self.nome

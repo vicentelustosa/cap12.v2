@@ -1,32 +1,72 @@
-from modelos import Usuario
+# Python — servicos/usuario_service.py
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from modelos.usuario import Usuario
+from modelos.emprestimo import Emprestimo
 
 
 class UsuarioService:
-    def __init__(self, biblioteca):
-        self.__biblioteca = biblioteca
 
-    def cadastrar(self, nome: str):
+    def __init__(self, sessao: Session):
+        self.__sessao = sessao
+
+    def cadastrar(self, nome: str) -> Usuario:
         nome = nome.strip()
+
         if not nome:
-            raise ValueError("O nome do usuário não pode ser vazio.")
-        if self.__biblioteca.buscar_usuario(nome):
-            raise ValueError("Já existe um usuário com esse nome.")
-        usuario = Usuario(nome)
-        self.__biblioteca.adicionar_usuario(usuario)
-        self.__biblioteca.salvar()
+            raise ValueError(
+                "O nome do usuário não pode ser vazio."
+            )
+
+        usuario = Usuario(nome=nome)
+
+        try:
+            self.__sessao.add(usuario)
+            self.__sessao.commit()
+
+        except Exception:
+            self.__sessao.rollback()
+            raise
+
         return usuario
 
-    def listar(self):
-        return self.__biblioteca.listar_usuarios()
+    def listar(self) -> list[Usuario]:
+        comando = select(Usuario).order_by(
+            Usuario.nome,
+            Usuario.id
+        )
 
-    def buscar(self, nome: str):
-        return self.__biblioteca.buscar_usuario(nome.strip())
+        return self.__sessao.scalars(comando).all()
 
-    def remover(self, nome: str):
-        usuario = self.buscar(nome)
+    def buscar(self, id_usuario: int) -> Usuario | None:
+        return self.__sessao.get(Usuario, id_usuario)
+
+    def remover(self, id_usuario: int) -> None:
+        usuario = self.buscar(id_usuario)
+
         if usuario is None:
             raise ValueError("Usuário não encontrado.")
-        if any(e.usuario == usuario for e in self.__biblioteca.listar_emprestimos()):
-            raise ValueError("O usuário possui empréstimo ativo e não pode ser removido.")
-        self.__biblioteca.remover_usuario(usuario)
-        self.__biblioteca.salvar()
+
+        comando = select(Emprestimo.id).where(
+            Emprestimo.usuario_id == usuario.id
+        )
+
+        emprestimo_id = self.__sessao.scalars(
+            comando
+        ).first()
+
+        if emprestimo_id is not None:
+            raise ValueError(
+                "O usuário possui histórico de empréstimos "
+                "e não pode ser removido."
+            )
+
+        try:
+            self.__sessao.delete(usuario)
+            self.__sessao.commit()
+
+        except Exception:
+            self.__sessao.rollback()
+            raise

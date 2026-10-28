@@ -1,32 +1,72 @@
-from modelos import Livro
+# Python — servicos/livro_service.py
+
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from modelos.livro import Livro
+from modelos.emprestimo import Emprestimo
 
 
 class LivroService:
-    def __init__(self, biblioteca):
-        self.__biblioteca = biblioteca
 
-    def cadastrar(self, titulo: str):
+    def __init__(self, sessao: Session):
+        self.__sessao = sessao
+
+    def cadastrar(self, titulo: str) -> Livro:
         titulo = titulo.strip()
+
         if not titulo:
-            raise ValueError("O título do livro não pode ser vazio.")
-        if self.__biblioteca.buscar_livro(titulo):
-            raise ValueError("Já existe um livro com esse título.")
-        livro = Livro(titulo)
-        self.__biblioteca.adicionar_livro(livro)
-        self.__biblioteca.salvar()
+            raise ValueError(
+                "O título do livro não pode ser vazio."
+            )
+
+        livro = Livro(titulo=titulo)
+
+        try:
+            self.__sessao.add(livro)
+            self.__sessao.commit()
+
+        except Exception:
+            self.__sessao.rollback()
+            raise
+
         return livro
 
-    def listar(self):
-        return self.__biblioteca.listar_livros()
+    def listar(self) -> list[Livro]:
+        comando = select(Livro).order_by(
+            Livro.titulo,
+            Livro.id
+        )
 
-    def buscar(self, titulo: str):
-        return self.__biblioteca.buscar_livro(titulo.strip())
+        return self.__sessao.scalars(comando).all()
 
-    def remover(self, titulo: str):
-        livro = self.buscar(titulo)
+    def buscar(self, id_livro: int) -> Livro | None:
+        return self.__sessao.get(Livro, id_livro)
+
+    def remover(self, id_livro: int) -> None:
+        livro = self.buscar(id_livro)
+
         if livro is None:
             raise ValueError("Livro não encontrado.")
-        if any(e.livro == livro for e in self.__biblioteca.listar_emprestimos()):
-            raise ValueError("O livro está emprestado e não pode ser removido.")
-        self.__biblioteca.remover_livro(livro)
-        self.__biblioteca.salvar()
+
+        comando = select(Emprestimo.id).where(
+            Emprestimo.livro_id == livro.id
+        )
+
+        emprestimo_id = self.__sessao.scalars(
+            comando
+        ).first()
+
+        if emprestimo_id is not None:
+            raise ValueError(
+                "O livro possui histórico de empréstimos "
+                "e não pode ser removido."
+            )
+
+        try:
+            self.__sessao.delete(livro)
+            self.__sessao.commit()
+
+        except Exception:
+            self.__sessao.rollback()
+            raise

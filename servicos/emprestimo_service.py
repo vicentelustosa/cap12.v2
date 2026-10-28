@@ -1,34 +1,108 @@
-from modelos import Emprestimo
+# Python — servicos/emprestimo_service.py
+
+from sqlalchemy import select, func
+from sqlalchemy.orm import Session
+
+from modelos.livro import Livro
+from modelos.usuario import Usuario
+from modelos.emprestimo import Emprestimo
 
 
 class EmprestimoService:
-    def __init__(self, biblioteca):
-        self.__biblioteca = biblioteca
 
-    def emprestar(self, titulo_livro: str, nome_usuario: str):
-        livro = self.__biblioteca.buscar_livro(titulo_livro.strip())
+    def __init__(self, sessao: Session):
+        self.__sessao = sessao
+
+    def emprestar(
+        self,
+        id_livro: int,
+        id_usuario: int
+    ) -> Emprestimo:
+
+        livro = self.__sessao.get(
+            Livro,
+            id_livro
+        )
+
         if livro is None:
             raise ValueError("Livro não encontrado.")
-        usuario = self.__biblioteca.buscar_usuario(nome_usuario.strip())
+
+        usuario = self.__sessao.get(
+            Usuario,
+            id_usuario
+        )
+
         if usuario is None:
             raise ValueError("Usuário não encontrado.")
-        if any(e.livro == livro for e in self.__biblioteca.listar_emprestimos()):
-            raise ValueError("O livro já está emprestado.")
-        emprestimo = Emprestimo(usuario, livro)
-        self.__biblioteca.adicionar_emprestimo(emprestimo)
-        self.__biblioteca.salvar()
+
+        comando = select(Emprestimo.id).where(
+            Emprestimo.livro_id == livro.id,
+            Emprestimo.data_devolucao.is_(None)
+        )
+
+        emprestimo_id = self.__sessao.scalars(
+            comando
+        ).first()
+
+        if emprestimo_id is not None:
+            raise ValueError(
+                "O livro já está emprestado."
+            )
+
+        emprestimo = Emprestimo(
+            usuario=usuario,
+            livro=livro
+        )
+
+        try:
+            self.__sessao.add(emprestimo)
+            self.__sessao.commit()
+            self.__sessao.refresh(emprestimo)
+
+        except Exception:
+            self.__sessao.rollback()
+            raise
+
         return emprestimo
 
-    def listar(self):
-        return self.__biblioteca.listar_emprestimos()
+    def listar(self) -> list[Emprestimo]:
+        comando = select(Emprestimo).order_by(
+            Emprestimo.id
+        )
 
-    def devolver(self, titulo_livro: str):
-        livro = self.__biblioteca.buscar_livro(titulo_livro.strip())
+        return self.__sessao.scalars(comando).all()
+
+    def devolver(self, id_livro: int) -> Emprestimo:
+        livro = self.__sessao.get(
+            Livro,
+            id_livro
+        )
+
         if livro is None:
             raise ValueError("Livro não encontrado.")
-        for emprestimo in self.__biblioteca.listar_emprestimos():
-            if emprestimo.livro == livro:
-                self.__biblioteca.remover_emprestimo(emprestimo)
-                self.__biblioteca.salvar()
-                return emprestimo
-        raise ValueError("O livro não está emprestado.")
+
+        comando = select(Emprestimo).where(
+            Emprestimo.livro_id == livro.id,
+            Emprestimo.data_devolucao.is_(None)
+        )
+
+        emprestimo = self.__sessao.scalars(
+            comando
+        ).first()
+
+        if emprestimo is None:
+            raise ValueError(
+                "O livro não está emprestado."
+            )
+
+        try:
+            emprestimo.data_devolucao = func.now()
+
+            self.__sessao.commit()
+            self.__sessao.refresh(emprestimo)
+
+        except Exception:
+            self.__sessao.rollback()
+            raise
+
+        return emprestimo

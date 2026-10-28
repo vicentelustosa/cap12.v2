@@ -1,14 +1,26 @@
-class Livro:
-    def __init__(self, titulo: str):
-        self.titulo = titulo
+# Python — modelos/livro.py
+from sqlalchemy import String
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-    @property
-    def titulo(self) -> str:
-        return self.__titulo
+from modelos.base import Base
 
-    @titulo.setter
-    def titulo(self, valor: str):
-        self.__titulo = valor.strip()
 
-    def __str__(self):
+class Livro(Base):
+
+    __tablename__ = "livros"
+
+    id: Mapped[int] = mapped_column(
+        primary_key=True,
+        autoincrement=True
+    )
+
+    titulo: Mapped[str] = mapped_column(
+        String(200)
+    )
+
+    emprestimos: Mapped[list["Emprestimo"]] = relationship(
+        back_populates="livro"
+    )
+
+    def __str__(self) -> str:
         return self.titulo
